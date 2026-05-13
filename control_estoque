@@ -1,0 +1,176 @@
+-- TABELA de países
+CREATE TABLE tb_paises (
+    id SERIAL PRIMARY KEY,
+    nome VARCHAR(100) NOT NULL,
+    codigo_iso CHAR(2) UNIQUE
+);
+-- codigo_iso é um padrão internacional para atribuir códigos curtos e únicos a países ou territórios.
+
+-- TABELA de estados
+CREATE TABLE tb_estados (
+    id SERIAL PRIMARY KEY,
+    nome VARCHAR(100) NOT NULL,
+    sigla CHAR(2),
+    id_pais INTEGER,
+	FOREIGN KEY (id_pais) REFERENCES tb_paises(id)
+);
+
+-- TABELA de cidades
+CREATE TABLE tb_cidades (
+    id SERIAL PRIMARY KEY,
+    nome VARCHAR(150) NOT NULL,
+    id_estado INTEGER,
+	FOREIGN KEY (id_estado) REFERENCES tb_estados(id)
+);
+
+-- TABELA de endereços
+CREATE TABLE tb_enderecos (
+    id SERIAL PRIMARY KEY,
+    logradouro VARCHAR(150) NOT NULL,
+    numero VARCHAR(20),
+    complemento VARCHAR(100),
+    bairro VARCHAR(100),
+    cep VARCHAR(20) NOT NULL,
+    id_cidade INTEGER,
+    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+	FOREIGN KEY (id_cidade) REFERENCES tb_cidades(id)
+);
+
+-- TABELA de fornecedores
+CREATE TABLE tb_fornecedores (
+    id SERIAL PRIMARY KEY,
+    nome VARCHAR(150) NOT NULL,
+    cnpj VARCHAR(20) NOT NULL UNIQUE,
+    telefone VARCHAR(20) NOT NULL UNIQUE,
+    email VARCHAR(100) NOT NULL UNIQUE
+);
+
+-- TABELA funcionarios
+CREATE TABLE tb_funcionarios (
+	id SERIAL PRIMARY KEY,
+	nome VARCHAR(100) NOT NULL,
+	cpf CHAR(11) NOT NULL UNIQUE,
+	telefone VARCHAR(20) NOT NULL UNIQUE,
+	email VARCHAR(100) NOT NULL UNIQUE,
+	data_nascimento DATE NOT NULL
+);
+
+-- TABELA produtos
+CREATE TABLE tb_produtos (
+	id SERIAL PRIMARY KEY,
+	nome_produto VARCHAR(100) NOT NULL, 
+	categoria VARCHAR(100) NOT NULL,
+	preco_produto NUMERIC(10, 2) NOT NULL,
+	preco_custo_produto NUMERIC(10, 2) NOT NULL, 
+	qtn_disponivel INTEGER NOT NULL,
+	limite_min INTEGER NOT NULL
+);
+
+-- TABELA alertas
+CREATE TABLE tb_alertas (
+    id SERIAL PRIMARY KEY,
+    id_produto INTEGER NOT NULL,
+    qtn_disponivel INTEGER NOT NULL,
+    limite_min INTEGER NOT NULL,
+    data_alerta TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(20) DEFAULT 'PENDENTE',
+    FOREIGN KEY (id_produto) REFERENCES tb_produtos(id)
+);
+
+-- TABELA pedidos
+CREATE TABLE tb_pedidos (
+    id SERIAL PRIMARY KEY,
+    quantidade INTEGER NOT NULL,
+    preco_total NUMERIC(10, 2) NOT NULL,
+    data_pedido TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    previsao_entrega DATE NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDENTE',
+	id_loja INTEGER NOT NULL,
+    id_funcionario INTEGER NOT NULL,
+    id_fornecedor INTEGER NOT NULL,
+	FOREIGN KEY (id_loja) REFERENCES tb_loja(id),
+    FOREIGN KEY (id_funcionario) REFERENCES tb_funcionarios(id),
+    FOREIGN KEY (id_fornecedor) REFERENCES tb_fornecedores(id)
+);
+
+CREATE TABLE tb_estoque (
+    id SERIAL PRIMARY KEY,
+    id_produto INTEGER NOT NULL,
+    quantidade INTEGER NOT NULL DEFAULT 0,
+    unidade_medida VARCHAR(10) NOT NULL DEFAULT 'UNIDADE',
+    ultima_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+	id_ultimo_pedido INTEGER,
+	FOREIGN KEY (id_ultimo_pedido) REFERENCES tb_pedidos(id) ON DELETE SET NULL,
+    FOREIGN KEY (id_produto) REFERENCES tb_produtos(id) ON DELETE CASCADE,
+    CONSTRAINT chk_quantidade CHECK (quantidade >= 0)
+);
+
+CREATE TABLE tb_vendas (
+    id SERIAL PRIMARY KEY,
+    id_produto INTEGER NOT NULL,
+    quantidade INTEGER NOT NULL,
+    preco_total NUMERIC(10,2) NOT NULL,
+    id_funcionario INTEGER NOT NULL,
+    data_venda TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_produto) REFERENCES tb_produtos(id),
+    FOREIGN KEY (id_funcionario) REFERENCES tb_funcionarios(id)
+);
+
+
+
+-- TABELAS ASSOCIATIVAS
+
+-- ASSOCIATIVA funcionario_endereco
+CREATE TABLE funcionario_endereco (
+	id_funcionario INTEGER NOT NULL,
+	id_endereco INTEGER NOT NULL,
+	PRIMARY KEY (id_funcionario, id_endereco), 
+	FOREIGN KEY (id_funcionario) REFERENCES tb_funcionarios(id) ON DELETE CASCADE,
+	FOREIGN KEY (id_endereco) REFERENCES tb_enderecos(id) ON DELETE CASCADE
+);
+
+-- ASSOCIATIVA fornecedor_endereco
+CREATE TABLE fornecedor_endereco (
+	id_fornecedor INTEGER NOT NULL,
+	id_endereco INTEGER NOT NULL,
+	PRIMARY KEY (id_fornecedor, id_endereco), 
+	FOREIGN KEY (id_fornecedor) REFERENCES tb_fornecedores(id) ON DELETE CASCADE,
+	FOREIGN KEY (id_endereco) REFERENCES tb_enderecos(id) ON DELETE CASCADE
+);
+
+-- ASSOCIATIVA produto_fornecedor
+CREATE TABLE produto_fornecedor (
+	id_fornecedor INTEGER NOT NULL,
+	id_produto INTEGER NOT NULL,
+	PRIMARY KEY (id_fornecedor, id_produto),
+	FOREIGN KEY (id_fornecedor) REFERENCES tb_fornecedores(id) ON DELETE CASCADE,
+	FOREIGN KEY (id_produto) REFERENCES tb_produtos(id) ON DELETE CASCADE
+);
+
+-- ASSOCIATIVA pedido_produto
+CREATE TABLE pedido_produto (
+	id_pedido INTEGER NOT NULL,
+	id_produto INTEGER NOT NULL,
+	PRIMARY KEY (id_pedido, id_produto),
+	FOREIGN KEY (id_pedido) REFERENCES tb_pedidos(id) ON DELETE CASCADE,
+	FOREIGN KEY (id_produto) REFERENCES tb_produtos(id) ON DELETE CASCADE
+);
+
+
+-- VIEWS
+
+-- VIEW vi_estoque_baixo
+CREATE VIEW vw_estoque_baixo AS
+SELECT id, nome_produto, qtn_disponivel, limite_min
+FROM tb_produtos
+WHERE qtn_disponivel <= limite_min;
+
+
+SELECT * FROM vw_estoque_baixo
+-- TRIGGERS
+
+
+
+-- PROCEDURES
+
+
