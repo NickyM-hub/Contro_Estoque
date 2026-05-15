@@ -77,7 +77,6 @@ CREATE TABLE tb_pedidos (
     data_pedido TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
     previsao_entrega DATE NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'PENDENTE',
-	id_loja INTEGER NOT NULL,
     id_funcionario INTEGER NOT NULL,
     id_fornecedor INTEGER NOT NULL,
 	FOREIGN KEY (id_loja) REFERENCES tb_loja(id),

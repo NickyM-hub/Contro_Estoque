@@ -1,11 +1,16 @@
 <INSERTS>
+.Inserir paises, estados, cidades (Caso não dê para puxar o endereço através da API)
 
 
 <ALTERAÇÕES>
-.Adicionar campo unidade medida 
+.Adicionar campo 'unidade_medida' em tb_produtos 
+.Adicionar taxa de entrega
+.Adicionar campo 'salário' em tb_funcionarios
+.Adicionar o tipo do funcionário (Gerente, Administrador, Vendedor...)
 
-<FUNCTIONS>
-
+<FUNCTIONS> [usadas por procedures]
+.calcular o preço total do pedido (com base no preços dos produtos + preço de custo do produto + taxa de entrega)
+.calcular a idade de cada funcionário com base na data atual
 
 <PROCEDURES>
 .cadastrar fornecedor
@@ -16,9 +21,11 @@
 .cadastrar venda
 
 <TRIGGERS>
-.atualizar sempre que um produto for adicionado, removido ou esgotado
+.atualizar estoque sempre que um produto for adicionado, removido ou esgotado
 .atualizar pedido
-.atualizar atualizações dos cadastros de funcionários e fornecedores
+.atualizações dos cadastros de funcionários e fornecedores
 .Alertar sempre que um produto estiver acabando
+.verificar se a data de entrega do pedido tem, no mínimo, 4 dias de espera. 
 
 <VIEWS>
+.Visualizar produtos com quantidades abaixo do limite permitido  
