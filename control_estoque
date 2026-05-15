@@ -1,19 +1,15 @@
----------------
--- TABELAS
----------------
-
 -- TABELA de países
 CREATE TABLE tb_paises (
     id SERIAL PRIMARY KEY,
-    nome VARCHAR(100) NOT NULL,
+    nome VARCHAR(100) NOT NULL UNIQUE,
     codigo_iso CHAR(2) UNIQUE
 );
 
 -- TABELA de estados
 CREATE TABLE tb_estados (
     id SERIAL PRIMARY KEY,
-    nome VARCHAR(100) NOT NULL,
-    sigla CHAR(2),
+    nome VARCHAR(100) NOT NULL UNIQUE,
+    sigla CHAR(2) UNIQUE,
     id_pais INTEGER REFERENCES tb_paises(id)
 );
 
@@ -27,30 +23,26 @@ CREATE TABLE tb_cidades (
 -- TABELA de endereços
 CREATE TABLE tb_enderecos (
     id SERIAL PRIMARY KEY,
-    logradouro VARCHAR(150) NOT NULL,
-    numero VARCHAR(20),
-    complemento VARCHAR(100),
+    logradouro VARCHAR(250) NOT NULL,
+    numero VARCHAR(20) DEFAULT 's/n',
+    complemento VARCHAR(100) DEFAULT 's/c',
     bairro VARCHAR(100),
     cep VARCHAR(20) NOT NULL,
-    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-	id_cidade INTEGER REFERENCES tb_cidades(id)
+	id_cidade INTEGER REFERENCES tb_cidades(id) NOT NULL
 );
 
 -- TABELA de fornecedores
 CREATE TABLE tb_fornecedores (
-    id SERIAL PRIMARY KEY,
+    cnpj VARCHAR(20) PRIMARY KEY,
     nome VARCHAR(150) NOT NULL,
-    cnpj VARCHAR(20) NOT NULL UNIQUE,
     telefone VARCHAR(20) NOT NULL UNIQUE,
-    email VARCHAR(100) NOT NULL UNIQUE,
-	
+    email VARCHAR(100) NOT NULL UNIQUE
 );
 
 -- TABELA funcionarios
 CREATE TABLE tb_funcionarios (
-	id SERIAL PRIMARY KEY,
+	cpf CHAR(11) PRIMARY KEY,
 	nome VARCHAR(100) NOT NULL,
-	cpf CHAR(11) NOT NULL UNIQUE,
 	telefone VARCHAR(20) NOT NULL UNIQUE,
 	email VARCHAR(100) NOT NULL UNIQUE,
 	data_nascimento DATE NOT NULL
@@ -62,7 +54,7 @@ CREATE TABLE tb_produtos (
 	nome_produto VARCHAR(100) NOT NULL, 
 	categoria VARCHAR(100) NOT NULL,
 	preco_produto NUMERIC(10, 2) NOT NULL,
-	preco_custo_produto NUMERIC(10, 2) NOT NULL, 
+	preco_custo_produto NUMERIC(10, 2), 
 	qtn_disponivel INTEGER NOT NULL,
 	limite_min INTEGER NOT NULL
 );
@@ -70,12 +62,11 @@ CREATE TABLE tb_produtos (
 -- TABELA alertas
 CREATE TABLE tb_alertas (
     id SERIAL PRIMARY KEY,
-    id_produto INTEGER NOT NULL,
     qtn_disponivel INTEGER NOT NULL,
     limite_min INTEGER NOT NULL,
     data_alerta TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     status VARCHAR(20) DEFAULT 'PENDENTE',
-    FOREIGN KEY (id_produto) REFERENCES tb_produtos(id)
+	id_produto INTEGER REFERENCES tb_produtos(id) NOT NULL
 );
 
 -- TABELA pedidos
@@ -94,12 +85,11 @@ CREATE TABLE tb_pedidos (
     FOREIGN KEY (id_fornecedor) REFERENCES tb_fornecedores(id)
 );
 
--- TABELA ESTOQUE
 CREATE TABLE tb_estoque (
     id SERIAL PRIMARY KEY,
     id_produto INTEGER NOT NULL,
     quantidade INTEGER NOT NULL DEFAULT 0,
-    unidade_medida VARCHAR(10) NOT NULL DEFAULT 'UNIDADE',
+    unidade_medida VARCHAR(10) NOT NULL DEFAULT 'gramas',
     ultima_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	id_ultimo_pedido INTEGER,
 	FOREIGN KEY (id_ultimo_pedido) REFERENCES tb_pedidos(id) ON DELETE SET NULL,
@@ -119,10 +109,7 @@ CREATE TABLE tb_vendas (
 );
 
 
-
----------------------------
 -- TABELAS ASSOCIATIVAS
----------------------------
 
 -- ASSOCIATIVA funcionario_endereco
 CREATE TABLE funcionario_endereco (
@@ -160,38 +147,24 @@ CREATE TABLE pedido_produto (
 	FOREIGN KEY (id_produto) REFERENCES tb_produtos(id) ON DELETE CASCADE
 );
 
---------------
 -- INSERTS
---------------
 
 
-
-----------------
 -- FUNCTIONS
-----------------
 
 
-
------------------
 -- PROCEDURES
------------------
-
-
-
-------------
+CREATE OR REPLACE PROCEDURE prc_registrar_fornecedor(
+	p_nome VARCHAR,
+	p_cnpj VARCHAR,
+	p_telefone VARCHAR,
+	p_email VARCHAR	
+)
+LANGUAGE plpgsql
 -- VIEWS
-------------
 
-
-
-----------------------
 -- ARRUMANDO ERROS
-----------------------
 
-
-
--------------------------------
 -- DROPS (se necessário ;))
--------------------------------
 
 
