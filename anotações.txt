@@ -1,0 +1,24 @@
+<INSERTS>
+
+
+<ALTERAÇÕES>
+.Adicionar campo unidade medida 
+
+<FUNCTIONS>
+
+
+<PROCEDURES>
+.cadastrar fornecedor
+.cadastrar funcionário
+.cadastrar produto
+.cadastrar endereço (rua, número, complemento)
+.cadastrar pedido
+.cadastrar venda
+
+<TRIGGERS>
+.atualizar sempre que um produto for adicionado, removido ou esgotado
+.atualizar pedido
+.atualizar atualizações dos cadastros de funcionários e fornecedores
+.Alertar sempre que um produto estiver acabando
+
+<VIEWS>
