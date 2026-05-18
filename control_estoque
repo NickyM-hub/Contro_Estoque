@@ -26,9 +26,14 @@ CREATE TYPE STATUS_PRODUTO AS ENUM (
 );
 
 CREATE TYPE UNI_MEDIDA AS ENUM (
-	'Kg', 
-	'Unitário', 
-	'Litros'
+	'Kg',
+    'Gramas (G)', 
+	'Unitário (UNI)',
+    'Peça (PÇ)',
+    'Pacote (PCT)',
+    'Caixa (CX)', 
+	'Litros (L)',
+    'Metros (M)'
 );
 
 
@@ -47,7 +52,7 @@ CREATE TABLE tb_paises (
 CREATE TABLE tb_estados (
     id SERIAL PRIMARY KEY,
     nome VARCHAR(100) NOT NULL UNIQUE,
-    sigla CHAR(2) UNIQUE,
+    sigla CHAR(2) NOT NULL UNIQUE,
     id_pais INTEGER REFERENCES tb_paises(id)
 );
 
@@ -114,7 +119,7 @@ CREATE TABLE tb_alertas (
     limite_min INTEGER NOT NULL,
     data_alerta TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     status STATUS_ALERTAS DEFAULT 'Pendente',
-	id_produto INTEGER REFERENCES tb_produtos(id) NOT NULL
+	id_produto INTEGER REFERENCES tb_produtos(id) NOT NULL ON DELETE CASCADE
 );
 
 -- PEDIDOS
@@ -128,8 +133,8 @@ CREATE TABLE tb_pedidos (
     status STATUS_PEDIDO DEFAULT 'Pendente',
     cpf_funcionario CHAR(11) NOT NULL,
     cnpj_fornecedor VARCHAR(20) NOT NULL,
-    FOREIGN KEY (cpf_funcionario) REFERENCES tb_funcionarios(cpf),
-    FOREIGN KEY (cnpj_fornecedor) REFERENCES tb_fornecedores(cnpj)
+    FOREIGN KEY (cpf_funcionario) REFERENCES tb_funcionarios(cpf) ON DELETE CASCADE,
+    FOREIGN KEY (cnpj_fornecedor) REFERENCES tb_fornecedores(cnpj) ON DELETE CASCADE
 );
 
 -- ESTOQUE
@@ -148,13 +153,13 @@ CREATE TABLE tb_estoque (
 -- VENDAS
 CREATE TABLE tb_vendas (
     id SERIAL PRIMARY KEY,
-    id_produto INTEGER NOT NULL,
+    id_produto INTEGER NOT NULL UNIQUE,
     quantidade INTEGER NOT NULL,
     preco_total NUMERIC(10,2) NOT NULL,
     cpf_funcionario CHAR(11) NOT NULL,
     data_venda TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_produto) REFERENCES tb_produtos(id),
-    FOREIGN KEY (cpf_funcionario) REFERENCES tb_funcionarios(cpf)
+    FOREIGN KEY (id_produto) REFERENCES tb_produtos(id) ON DELETE CASCADE,
+    FOREIGN KEY (cpf_funcionario) REFERENCES tb_funcionarios(cpf) ON DELETE CASCADE
 );
 
 
@@ -167,8 +172,8 @@ CREATE TABLE categoria_produto (
 	id_categoria INTEGER NOT NULL,
 	id_produto INTEGER NOT NULL,
 	PRIMARY KEY (id_categoria, id_produto),	
-	FOREIGN KEY (id_categoria) REFERENCES tb_categorias_produtos(id),
-	FOREIGN KEY (id_produto) REFERENCES tb_produtos(id)
+	FOREIGN KEY (id_categoria) REFERENCES tb_categorias_produtos(id) ON DELETE CASCADE,
+	FOREIGN KEY (id_produto) REFERENCES tb_produtos(id) ON DELETE CASCADE
 );
 
 -- funcionario_endereco

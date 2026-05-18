@@ -3,7 +3,6 @@
 
 
 <ALTERAÇÕES>
-.Adicionar campo 'unidade_medida' em tb_produtos 
 .Adicionar taxa de entrega
 .Adicionar campo 'salário' em tb_funcionarios
 .Adicionar o tipo do funcionário (Gerente, Administrador, Vendedor...)
@@ -26,6 +25,7 @@
 .atualizações dos cadastros de funcionários e fornecedores
 .Alertar sempre que um produto estiver acabando
 .verificar se a data de entrega do pedido tem, no mínimo, 4 dias de espera. 
+.Impedir a venda caso a quantidade disponível seja menor que a quantidade desejada para a venda.
 
 <VIEWS>
 .Visualizar produtos com quantidades abaixo do limite permitido  
