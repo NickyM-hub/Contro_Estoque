@@ -44,6 +44,12 @@ CREATE TYPE UNI_MEDIDA AS ENUM (
     'Metros (M)'
 );
 
+CREATE TYPE MOVIMENTAÇÃO_ESTOQUE AS ENUM (
+    'Entrada',
+    'Saída',
+    'Ajuste de Inventário'
+);
+
 
 ------------------
 -- TABELAS
@@ -171,6 +177,7 @@ CREATE TABLE tb_vendas (
     id SERIAL PRIMARY KEY,
     cpf_funcionario CHAR(11) NOT NULL,
     data_venda TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
     FOREIGN KEY (cpf_funcionario) REFERENCES tb_funcionarios(cpf) ON DELETE CASCADE
 );
 
@@ -204,7 +211,7 @@ CREATE TABLE tb_estoque (
 CREATE TABLE tb_movimentacao_estoque (
     id SERIAL PRIMARY KEY,
     id_produto INTEGER,
-    tipo VARCHAR(20), -- Entrada/Saída
+    tipo VARCHAR(20),
     quantidade INTEGER,
     data_movimentacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     id_pedido INTEGER,
