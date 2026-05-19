@@ -2,6 +2,14 @@
 -- TYPES
 ------------------
 
+CREATE TYPE FORMA_PAGAMENTO AS ENUM (
+    'Débito',
+    'Crédito',
+    'Pix',
+    'Boleto',
+    'Dinheiro'
+);
+
 CREATE TYPE STATUS_PEDIDO AS ENUM (
 	'Pendente',
     'Em análise',
@@ -40,6 +48,7 @@ CREATE TYPE UNI_MEDIDA AS ENUM (
 ------------------
 -- TABELAS
 ------------------
+
 
 -- PAISES
 CREATE TABLE tb_paises (
@@ -122,44 +131,87 @@ CREATE TABLE tb_alertas (
 	id_produto INTEGER REFERENCES tb_produtos(id) NOT NULL ON DELETE CASCADE
 );
 
+-- PAGAMENTO
+CREATE TABLE tb_pagamento(
+    id SERIAL PRIMARY KEY,
+    forma_pagamento FORMA_PAGAMENTO DEFAULT 'Pix',
+    juros NUMERIC(5,2),
+    impostos NUMERIC(5,2),
+    valor_compra NUMERIC(10, 2),
+    valor_total NUMERIC(10, 2)
+);
+
 -- PEDIDOS
 CREATE TABLE tb_pedidos (
     id SERIAL PRIMARY KEY,
-    quantidade INTEGER NOT NULL
-	CHECK (quantidade > 0),
-    preco_total NUMERIC(10, 2) NOT NULL,
     data_pedido TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
     previsao_entrega DATE NOT NULL,
     status STATUS_PEDIDO DEFAULT 'Pendente',
     cpf_funcionario CHAR(11) NOT NULL,
     cnpj_fornecedor VARCHAR(20) NOT NULL,
+
     FOREIGN KEY (cpf_funcionario) REFERENCES tb_funcionarios(cpf) ON DELETE CASCADE,
     FOREIGN KEY (cnpj_fornecedor) REFERENCES tb_fornecedores(cnpj) ON DELETE CASCADE
+);
+
+-- ITENS PEDIDO  
+CREATE TABLE tb_itens_pedido (
+    id SERIAL PRIMARY KEY,
+    id_pedido INTEGER NOT NULL,
+    id_produto INTEGER NOT NULL,
+    quantidade INTEGER NOT NULL,
+    preco_unitario NUMERIC(10,2),
+
+    FOREIGN KEY (id_pedido) REFERENCES tb_pedidos(id),
+    FOREIGN KEY (id_produto) REFERENCES tb_produtos(id)
+);
+
+-- VENDAS
+CREATE TABLE tb_vendas (
+    id SERIAL PRIMARY KEY,
+    cpf_funcionario CHAR(11) NOT NULL,
+    data_venda TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cpf_funcionario) REFERENCES tb_funcionarios(cpf) ON DELETE CASCADE
+);
+
+-- ITENS VENDA
+CREATE TABLE tb_itens_venda (
+    id SERIAL PRIMARY KEY,
+    id_venda INTEGER NOT NULL,
+    id_produto INTEGER NOT NULL,
+    quantidade INTEGER NOT NULL,
+    preco_unitario NUMERIC(10,2),
+
+    FOREIGN KEY (id_venda) REFERENCES tb_vendas(id),
+    FOREIGN KEY (id_produto) REFERENCES tb_produtos(id)
 );
 
 -- ESTOQUE
 CREATE TABLE tb_estoque (
     id SERIAL PRIMARY KEY,
     id_produto INTEGER NOT NULL,
-    quantidade INTEGER NOT NULL DEFAULT 0,
+    quantidade INTEGER NOT NULL DEFAULT 0
+    CHECK (quantidade >= 0),
     unidade_medida UNI_MEDIDA,
     ultima_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	id_ultimo_pedido INTEGER,
+
 	FOREIGN KEY (id_ultimo_pedido) REFERENCES tb_pedidos(id) ON DELETE SET NULL,
-    FOREIGN KEY (id_produto) REFERENCES tb_produtos(id) ON DELETE CASCADE,
-    CONSTRAINT chk_quantidade CHECK (quantidade >= 0)
+    FOREIGN KEY (id_produto) REFERENCES tb_produtos(id) ON DELETE CASCADE
 );
 
--- VENDAS
-CREATE TABLE tb_vendas (
+-- MOVIMENTAÇÃO DO ESTOQUE
+CREATE TABLE tb_movimentacao_estoque (
     id SERIAL PRIMARY KEY,
-    id_produto INTEGER NOT NULL UNIQUE,
-    quantidade INTEGER NOT NULL,
-    preco_total NUMERIC(10,2) NOT NULL,
-    cpf_funcionario CHAR(11) NOT NULL,
-    data_venda TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_produto) REFERENCES tb_produtos(id) ON DELETE CASCADE,
-    FOREIGN KEY (cpf_funcionario) REFERENCES tb_funcionarios(cpf) ON DELETE CASCADE
+    id_produto INTEGER,
+    tipo VARCHAR(20), -- Entrada/Saída
+    quantidade INTEGER,
+    data_movimentacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    id_pedido INTEGER,
+    id_venda INTEGER,
+
+    FOREIGN KEY (id_pedido) REFERENCES tb_pedidos(id),
+    FOREIGN KEY (id_venda) REFERENCES tb_vendas(id)
 );
 
 
@@ -167,11 +219,14 @@ CREATE TABLE tb_vendas (
 -- TABELAS ASSOCIATIVAS
 -----------------------------
 
+
 -- categoria_produto
 CREATE TABLE categoria_produto (
 	id_categoria INTEGER NOT NULL,
 	id_produto INTEGER NOT NULL,
+
 	PRIMARY KEY (id_categoria, id_produto),	
+
 	FOREIGN KEY (id_categoria) REFERENCES tb_categorias_produtos(id) ON DELETE CASCADE,
 	FOREIGN KEY (id_produto) REFERENCES tb_produtos(id) ON DELETE CASCADE
 );
@@ -180,8 +235,10 @@ CREATE TABLE categoria_produto (
 CREATE TABLE funcionario_endereco (
 	cpf_funcionario CHAR(11) NOT NULL,
 	id_endereco INTEGER NOT NULL,
+
 	PRIMARY KEY (cpf_funcionario, id_endereco), 
-	FOREIGN KEY (id_funcionario) REFERENCES tb_funcionarios(cpf) ON DELETE CASCADE,
+
+	FOREIGN KEY (cpf_funcionario) REFERENCES tb_funcionarios(cpf) ON DELETE CASCADE,
 	FOREIGN KEY (id_endereco) REFERENCES tb_enderecos(id) ON DELETE CASCADE
 );
 
@@ -189,7 +246,9 @@ CREATE TABLE funcionario_endereco (
 CREATE TABLE fornecedor_endereco (
 	cnpj_fornecedor VARCHAR(20) NOT NULL,
 	id_endereco INTEGER NOT NULL,
+
 	PRIMARY KEY (cnpj_fornecedor, id_endereco), 
+
 	FOREIGN KEY (cnpj_fornecedor) REFERENCES tb_fornecedores(cnpj) ON DELETE CASCADE,
 	FOREIGN KEY (id_endereco) REFERENCES tb_enderecos(id) ON DELETE CASCADE
 );
@@ -198,21 +257,18 @@ CREATE TABLE fornecedor_endereco (
 CREATE TABLE produto_fornecedor (
 	cnpj_fornecedor VARCHAR(20) NOT NULL,
 	id_produto INTEGER NOT NULL,
+
 	PRIMARY KEY (cnpj_fornecedor, id_produto),
+
 	FOREIGN KEY (cnpj_fornecedor) REFERENCES tb_fornecedores(cnpj) ON DELETE CASCADE,
 	FOREIGN KEY (id_produto) REFERENCES tb_produtos(id) ON DELETE CASCADE
 );
 
--- pedido_produto
-CREATE TABLE pedido_produto (
-	id_pedido INTEGER NOT NULL,
-	id_produto INTEGER NOT NULL,
-	PRIMARY KEY (id_pedido, id_produto),
-	FOREIGN KEY (id_pedido) REFERENCES tb_pedidos(id) ON DELETE CASCADE,
-	FOREIGN KEY (id_produto) REFERENCES tb_produtos(id) ON DELETE CASCADE
-);
 
+-----------------------
 -- PROCEDURES
+-----------------------
+
 CREATE OR REPLACE PROCEDURE prc_registrar_fornecedor(
 	p_nome VARCHAR,
 	p_cnpj VARCHAR,
@@ -221,12 +277,22 @@ CREATE OR REPLACE PROCEDURE prc_registrar_fornecedor(
 )
 LANGUAGE plpgsql
 
+------------------
 -- TRIGGERS
+------------------
 
+
+----------------
 -- VIEWS
+----------------
 
+
+------------------------
 -- ARRUMANDO ERROS
+------------------------
 
+
+----------------------------------
 -- DROPS (se necessário :))
-
+----------------------------------
 
