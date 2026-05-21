@@ -10,6 +10,7 @@ CREATE TYPE FORMA_PAGAMENTO AS ENUM (
     'Dinheiro'
 );
 
+
 CREATE TYPE STATUS_PEDIDO AS ENUM (
 	'Pendente',
     'Em análise',
@@ -19,6 +20,7 @@ CREATE TYPE STATUS_PEDIDO AS ENUM (
     'Em rota de entrega',
     'Entregue'
 );
+
 	
 CREATE TYPE STATUS_ALERTAS AS ENUM (
 	'Pendente', 
@@ -27,11 +29,13 @@ CREATE TYPE STATUS_ALERTAS AS ENUM (
 	'Ignorado'
 );
 
+
 CREATE TYPE STATUS_PRODUTO AS ENUM (
 	'Disponível', 
 	'Esgotado', 
 	'Indisponível'
 );
+
 
 CREATE TYPE UNI_MEDIDA AS ENUM (
 	'Kg',
@@ -44,7 +48,8 @@ CREATE TYPE UNI_MEDIDA AS ENUM (
     'Metros (M)'
 );
 
-CREATE TYPE MOVIMENTAÇÃO_ESTOQUE AS ENUM (
+
+CREATE TYPE MOVIMENTACAO_ESTOQUE AS ENUM (
     'Entrada',
     'Saída',
     'Ajuste de Inventário'
@@ -55,13 +60,13 @@ CREATE TYPE MOVIMENTAÇÃO_ESTOQUE AS ENUM (
 -- TABELAS
 ------------------
 
-
 -- PAISES
 CREATE TABLE tb_paises (
     id SERIAL PRIMARY KEY,
     nome VARCHAR(100) NOT NULL UNIQUE,
     codigo_iso CHAR(2) UNIQUE
 );
+
 
 -- ESTADOS
 CREATE TABLE tb_estados (
@@ -71,12 +76,14 @@ CREATE TABLE tb_estados (
     id_pais INTEGER REFERENCES tb_paises(id)
 );
 
+
 -- CIDADES
 CREATE TABLE tb_cidades (
     id SERIAL PRIMARY KEY,
     nome VARCHAR(150) NOT NULL,
     id_estado INTEGER REFERENCES tb_estados(id)
 );
+
 
 -- ENDEREÇOS
 CREATE TABLE tb_enderecos (
@@ -86,8 +93,20 @@ CREATE TABLE tb_enderecos (
     complemento VARCHAR(100) DEFAULT 's/c',
     bairro VARCHAR(100),
     cep VARCHAR(20) NOT NULL,
-	id_cidade INTEGER REFERENCES tb_cidades(id) NOT NULL
+	id_cidade INTEGER NOT NULL,
+	
+	FOREIGN KEY (id_cidade) REFERENCES tb_cidades(id) ON DELETE CASCADE
 );
+
+
+-- PAGAMENTO
+CREATE TABLE tb_pagamentos(
+    id SERIAL PRIMARY KEY,
+    forma_pagamento FORMA_PAGAMENTO NOT NULL,
+    juros NUMERIC(5,2),
+    impostos NUMERIC(5,2)
+);
+
 
 -- FORNECEDORES
 CREATE TABLE tb_fornecedores (
@@ -97,16 +116,19 @@ CREATE TABLE tb_fornecedores (
     email VARCHAR(100) NOT NULL UNIQUE
 );
 
+
 -- FUNCIONÁRIOS
 CREATE TABLE tb_funcionarios (
 	cpf CHAR(11) PRIMARY KEY,
 	nome VARCHAR(100) NOT NULL,
 	idade INTEGER NOT NULL
 	CHECK (idade >= 18),
+	salario NUMERIC(10, 2),
 	telefone VARCHAR(20) NOT NULL UNIQUE,
 	email VARCHAR(100) NOT NULL UNIQUE,
 	data_nascimento DATE NOT NULL
 );
+
 
 --CATEGORIAS PARA PRODUTOS
 CREATE TABLE tb_categorias_produtos (
@@ -114,51 +136,39 @@ CREATE TABLE tb_categorias_produtos (
     nome_categoria VARCHAR(100) UNIQUE NOT NULL
 );
 
+
 -- PRODUTOS
 CREATE TABLE tb_produtos (
-	id SERIAL PRIMARY KEY,
-	nome_produto VARCHAR(100) NOT NULL,
-	codigo_barras VARCHAR(50) UNIQUE NOT NULL,
-	status STATUS_PRODUTO NOT NULL,
-	preco_produto NUMERIC(10, 2) NOT NULL
-	CHECK (preco_produto > 0),
-	preco_custo_produto NUMERIC(10, 2)
-	CHECK (preco_custo_produto > 0),
-	limite_min INTEGER NOT NULL
+    id SERIAL PRIMARY KEY,
+    sku VARCHAR(20) UNIQUE NOT NULL,
+    nome_produto VARCHAR(100) NOT NULL,
+    marca VARCHAR(100),
+    tamanho VARCHAR(50),
+    cor VARCHAR(50),
+    caract_especial VARCHAR(100),
+    codigo_barras VARCHAR(50) UNIQUE NOT NULL,
+    status STATUS_PRODUTO NOT NULL,
+    preco_produto NUMERIC(10,2) NOT NULL
+    CHECK (preco_produto > 0),
+    preco_custo_produto NUMERIC(10,2)
+    CHECK (preco_custo_produto > 0),
+    limite_min INTEGER NOT NULL
+	CHECK (limite_min >= 0),
+    ativo BOOLEAN DEFAULT TRUE
 );
 
--- SKU DE PRODUTOS
-CREATE TABLE sku_produto (
-    cod_sku CHAR(7) PRIMARY KEY,
-    sku VARCHAR(20) NOT NULL,
-    marca VARCHAR(100),
-    qtnd_uni INTEGER,
-    cor VARCHAR(100),
-    tamanho VARCHAR(100),
-    tipo VARCHAR(100),
-    id_produto INTEGER NOT NULL UNIQUE,
-    FOREIGN KEY (id_produto) REFERENCES tb_produtos(id)
-)
 
 -- ALERTAS
 CREATE TABLE tb_alertas (
     id SERIAL PRIMARY KEY,
-    qtn_disponivel INTEGER NOT NULL,
-    limite_min INTEGER NOT NULL,
+	mensagem TEXT NOT NULL,
     data_alerta TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     status STATUS_ALERTAS DEFAULT 'Pendente',
-	id_produto INTEGER REFERENCES tb_produtos(id) NOT NULL ON DELETE CASCADE
+	id_produto INTEGER NOT NULL,
+	
+	FOREIGN KEY (id_produto) REFERENCES tb_produtos(id)ON DELETE CASCADE
 );
 
--- PAGAMENTO
-CREATE TABLE tb_pagamento(
-    id SERIAL PRIMARY KEY,
-    forma_pagamento FORMA_PAGAMENTO DEFAULT 'Pix',
-    juros NUMERIC(5,2),
-    impostos NUMERIC(5,2),
-    valor_compra NUMERIC(10, 2),
-    valor_total NUMERIC(10, 2)
-);
 
 -- PEDIDOS
 CREATE TABLE tb_pedidos (
@@ -168,11 +178,29 @@ CREATE TABLE tb_pedidos (
     status STATUS_PEDIDO DEFAULT 'Pendente',
     cpf_funcionario CHAR(11) NOT NULL,
     cnpj_fornecedor VARCHAR(20) NOT NULL,
+	valor_total NUMERIC(10, 2) NOT NULL
+	CHECK (valor_total >= 0),
+	id_pagamento INTEGER NOT NULL,
 
-    FOREIGN KEY (cpf_funcionario) REFERENCES tb_funcionarios(cpf) ON DELETE CASCADE,
-    FOREIGN KEY (cnpj_fornecedor) REFERENCES tb_fornecedores(cnpj) ON DELETE CASCADE
+	FOREIGN KEY (id_pagamento) REFERENCES tb_pagamentos(id),
+    FOREIGN KEY (cpf_funcionario) REFERENCES tb_funcionarios(cpf),
+    FOREIGN KEY (cnpj_fornecedor) REFERENCES tb_fornecedores(cnpj)
 );
 
+
+-- ITENS PEDIDO  
+CREATE TABLE tb_itens_pedido (
+    id SERIAL PRIMARY KEY,
+    quantidade INTEGER NOT NULL
+	CHECK (quantidade > 0),
+    preco_unitario NUMERIC(10,2) NOT NULL
+	CHECK (preco_unitario >= 0),
+    id_pedido INTEGER NOT NULL,
+    id_produto INTEGER NOT NULL,
+
+    FOREIGN KEY (id_pedido) REFERENCES tb_pedidos(id),
+    FOREIGN KEY (id_produto) REFERENCES tb_produtos(id)
+);
 
 
 -- VENDAS
@@ -180,58 +208,62 @@ CREATE TABLE tb_vendas (
     id SERIAL PRIMARY KEY,
     cpf_funcionario CHAR(11) NOT NULL,
     data_venda TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
-    FOREIGN KEY (cpf_funcionario) REFERENCES tb_funcionarios(cpf) ON DELETE CASCADE
+	valor_total NUMERIC(10, 2) NOT NULL
+	CHECK (valor_total >= 0),
+	id_pagamento INTEGER NOT NULL,
+
+	FOREIGN KEY (id_pagamento) REFERENCES tb_pagamentos(id),
+    FOREIGN KEY (cpf_funcionario) REFERENCES tb_funcionarios(cpf)
 );
+
 
 -- ITENS VENDA
 CREATE TABLE tb_itens_venda (
     id SERIAL PRIMARY KEY,
-    id_venda INTEGER NOT NULL,
+    sku_vendido VARCHAR(20),
+    nome_produto_vendido VARCHAR(100),
+	quantidade INTEGER NOT NULL
+	CHECK (quantidade > 0),
+    preco_unitario NUMERIC(10,2) NOT NULL
+	CHECK (preco_unitario >= 0),
     id_produto INTEGER NOT NULL,
-    quantidade INTEGER NOT NULL,
-    preco_unitario NUMERIC(10,2),
-
-    FOREIGN KEY (id_venda) REFERENCES tb_vendas(id),
-    FOREIGN KEY (id_produto) REFERENCES tb_produtos(id)
+	id_venda INTEGER NOT NULL,
+	
+	FOREIGN KEY (id_produto) REFERENCES tb_produtos(id),
+	FOREIGN KEY (id_venda) REFERENCES tb_vendas(id)
 );
 
--- ITENS PEDIDO  
-CREATE TABLE tb_itens_pedido (
-    id SERIAL PRIMARY KEY,
-    id_pedido INTEGER NOT NULL,
-    id_produto INTEGER NOT NULL,
-    quantidade INTEGER NOT NULL,
-    preco_unitario NUMERIC(10,2),
-
-    FOREIGN KEY (id_pedido) REFERENCES tb_pedidos(id),
-    FOREIGN KEY (id_produto) REFERENCES tb_produtos(id)
-);
 
 -- ESTOQUE
 CREATE TABLE tb_estoque (
     id SERIAL PRIMARY KEY,
-    id_produto INTEGER NOT NULL,
-    quantidade INTEGER NOT NULL DEFAULT 0
-    CHECK (quantidade >= 0),
+    id_produto INTEGER NOT NULL UNIQUE,
+    quantidade INTEGER NOT NULL
+	CHECK (quantidade > 0),
     unidade_medida UNI_MEDIDA,
     ultima_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	id_ultimo_pedido INTEGER,
 
 	FOREIGN KEY (id_ultimo_pedido) REFERENCES tb_pedidos(id) ON DELETE SET NULL,
-    FOREIGN KEY (id_produto) REFERENCES tb_produtos(id) ON DELETE CASCADE
+    FOREIGN KEY (id_produto) REFERENCES tb_produtos(id)
 );
+
 
 -- MOVIMENTAÇÃO DO ESTOQUE
 CREATE TABLE tb_movimentacao_estoque (
     id SERIAL PRIMARY KEY,
-    id_produto INTEGER,
-    tipo VARCHAR(20),
-    quantidade INTEGER,
+	observacao TEXT NOT NULL,
+    tipo MOVIMENTACAO_ESTOQUE NOT NULL,
+    quantidade INTEGER NOT NULL
+	CHECK (quantidade > 0),
     data_movimentacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+	id_estoque INTEGER NOT NULL,
+	id_produto INTEGER NOT NULL,
     id_pedido INTEGER,
     id_venda INTEGER,
 
+	FOREIGN KEY (id_estoque) REFERENCES tb_estoque(id),
+	FOREIGN KEY (id_produto) REFERENCES tb_produtos(id),	
     FOREIGN KEY (id_pedido) REFERENCES tb_pedidos(id),
     FOREIGN KEY (id_venda) REFERENCES tb_vendas(id)
 );
@@ -240,7 +272,6 @@ CREATE TABLE tb_movimentacao_estoque (
 -----------------------------
 -- TABELAS ASSOCIATIVAS
 -----------------------------
-
 
 -- categoria_produto
 CREATE TABLE categoria_produto (
@@ -317,4 +348,3 @@ LANGUAGE plpgsql
 ----------------------------------
 -- DROPS (se necessário :))
 ----------------------------------
-
