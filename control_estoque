@@ -2,6 +2,14 @@
 -- TYPES
 ------------------
 
+CREATE TYPE TIPO_FUNCIONARIO AS ENUM (
+    'Administrador',
+    'Gerente',
+    'Vendedor',
+    'Estoquista',
+    'Financeiro'
+);
+
 CREATE TYPE FORMA_PAGAMENTO AS ENUM (
     'Débito',
     'Crédito',
@@ -126,14 +134,36 @@ CREATE TABLE tb_funcionarios (
 	salario NUMERIC(10, 2),
 	telefone VARCHAR(20) NOT NULL UNIQUE,
 	email VARCHAR(100) NOT NULL UNIQUE,
-	data_nascimento DATE NOT NULL
+	data_nascimento DATE NOT NULL,
+	tipo_funcionario TIPO_FUNCIONARIO NOT NULL
 );
 
 
---CATEGORIAS PARA PRODUTOS
+-- CATEGORIAS PARA PRODUTOS
 CREATE TABLE tb_categorias_produtos (
     id SERIAL PRIMARY KEY,
     nome_categoria VARCHAR(100) UNIQUE NOT NULL
+);
+
+
+-- COR DO PRODUTO
+CREATE TABLE tb_cor_produto (
+    id SERIAL PRIMARY KEY,
+    nome_cor VARCHAR(100) NOT NULL UNIQUE
+);
+
+
+-- MARCA DO PRODUTO
+CREATE TABLE tb_marca_produto (
+    id SERIAL PRIMARY KEY,
+    nome_marca VARCHAR(100) NOT NULL UNIQUE
+);
+
+
+-- TAMANHO DO PRODUTO
+CREATE TABLE tb_tamanho_produto (
+    id SERIAL PRIMARY KEY,
+    tamanho VARCHAR(50) NOT NULL UNIQUE
 );
 
 
@@ -142,10 +172,10 @@ CREATE TABLE tb_produtos (
     id SERIAL PRIMARY KEY,
     sku VARCHAR(20) UNIQUE NOT NULL,
     nome_produto VARCHAR(100) NOT NULL,
-    marca VARCHAR(100),
-    tamanho VARCHAR(50),
-    cor VARCHAR(50),
-    caract_especial VARCHAR(100),
+	id_marca INTEGER,
+    id_tamanho INTEGER,
+    id_cor INTEGER,
+    caract_especial TEXT,
     codigo_barras VARCHAR(50) UNIQUE NOT NULL,
     status STATUS_PRODUTO NOT NULL,
     preco_produto NUMERIC(10,2) NOT NULL
@@ -154,7 +184,12 @@ CREATE TABLE tb_produtos (
     CHECK (preco_custo_produto > 0),
     limite_min INTEGER NOT NULL
 	CHECK (limite_min >= 0),
-    ativo BOOLEAN DEFAULT TRUE
+    ativo BOOLEAN DEFAULT TRUE,
+	UNIQUE (nome_produto, id_marca, id_cor, id_tamanho),
+
+	FOREIGN KEY (id_marca) REFERENCES tb_marca_produto(id),
+	FOREIGN KEY (id_cor) REFERENCES tb_cor_produto(id),
+	FOREIGN KEY (id_tamanho) REFERENCES tb_tamanho_produto(id)
 );
 
 
@@ -238,8 +273,8 @@ CREATE TABLE tb_itens_venda (
 CREATE TABLE tb_estoque (
     id SERIAL PRIMARY KEY,
     id_produto INTEGER NOT NULL UNIQUE,
-    quantidade INTEGER NOT NULL
-	CHECK (quantidade > 0),
+    quantidade_produto INTEGER NOT NULL
+	CHECK (quantidade_produto > 0),
     unidade_medida UNI_MEDIDA,
     ultima_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	id_ultimo_pedido INTEGER,
@@ -259,9 +294,11 @@ CREATE TABLE tb_movimentacao_estoque (
     data_movimentacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	id_estoque INTEGER NOT NULL,
 	id_produto INTEGER NOT NULL,
+	cpf_funcionario CHAR(11) NOT NULL,
     id_pedido INTEGER,
     id_venda INTEGER,
 
+	FOREIGN KEY (cpf_funcionario) REFERENCES tb_funcionarios(cpf),
 	FOREIGN KEY (id_estoque) REFERENCES tb_estoque(id),
 	FOREIGN KEY (id_produto) REFERENCES tb_produtos(id),	
     FOREIGN KEY (id_pedido) REFERENCES tb_pedidos(id),
@@ -344,7 +381,7 @@ LANGUAGE plpgsql
 -- ARRUMANDO ERROS
 ------------------------
 
-
 ----------------------------------
 -- DROPS (se necessário :))
 ----------------------------------
+
