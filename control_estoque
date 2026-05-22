@@ -130,7 +130,8 @@ CREATE TABLE tb_funcionarios (
 	cpf CHAR(11) PRIMARY KEY,
 	nome VARCHAR(100) NOT NULL,
 	CHECK (idade >= 18),
-	salario NUMERIC(10, 2),
+	salario NUMERIC(10, 2)
+    CHECK (salario > 0),
 	telefone VARCHAR(20) NOT NULL UNIQUE,
 	email VARCHAR(100) NOT NULL UNIQUE,
 	data_nascimento DATE NOT NULL,
@@ -359,7 +360,7 @@ CREATE TABLE produto_fornecedor (
 -----------------------
 
 -- CADASTRANDO PAGAMENTO
-CREATE OR REPLACE prc_registrar_pagamento (
+CREATE OR REPLACE PROCEDURE prc_registrar_pagamento (
     p_forma_pagamento FORMA_PAGAMENTO,
     p_juros NUMERIC(5,2),
     p_impostos NUMERIC(5,2)
@@ -367,20 +368,16 @@ CREATE OR REPLACE prc_registrar_pagamento (
 LANGUAGE plpgsql
 AS $$
 BEGIN 
+    INSERT INTO tb_pagamentos (forma_pagamento, juros, impostos) 
+    VALUES (p_forma_pagamento, p_juros, p_impostos);
+
+    RAISE NOTICE 'Registro feito com sucesso';
 
 EXCEPTION
-
+    WHEN others THEN 
+        RAISE NOTICE 'Erro ao regiastrar forma de pagamento: %', SQLERRM;
 END;
 $$;
-
-
--- PAGAMENTO
-CREATE TABLE tb_pagamentos(
-    id SERIAL PRIMARY KEY,
-    forma_pagamento FORMA_PAGAMENTO NOT NULL,
-    juros NUMERIC(5,2),
-    impostos NUMERIC(5,2)
-);
 
 
 -- CADASTRANDO FORNECEDOR
@@ -397,7 +394,6 @@ BEGIN
     VALUES (p_nome, p_cnpj, p_telefone, p_email);
 
     RAISE NOTICE 'Fornecedor cadastrado com sucesso';
-    SELECT * FROM tb_fornecedores;
 
 EXCEPTION
     WHEN others THEN 
