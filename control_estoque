@@ -107,13 +107,13 @@ CREATE TABLE tb_enderecos (
 );
 
 
--- PAGAMENTO
-CREATE TABLE tb_pagamentos(
-    id SERIAL PRIMARY KEY,
-    forma_pagamento FORMA_PAGAMENTO NOT NULL,
-    juros NUMERIC(5,2),
-    impostos NUMERIC(5,2)
-);
+    -- PAGAMENTO
+    CREATE TABLE tb_pagamentos(
+        id SERIAL PRIMARY KEY,
+        forma_pagamento FORMA_PAGAMENTO NOT NULL,
+        juros NUMERIC(5,2),
+        impostos NUMERIC(5,2)
+    );
 
 
 -- FORNECEDORES
@@ -129,7 +129,6 @@ CREATE TABLE tb_fornecedores (
 CREATE TABLE tb_funcionarios (
 	cpf CHAR(11) PRIMARY KEY,
 	nome VARCHAR(100) NOT NULL,
-	idade INTEGER NOT NULL
 	CHECK (idade >= 18),
 	salario NUMERIC(10, 2),
 	telefone VARCHAR(20) NOT NULL UNIQUE,
@@ -359,13 +358,80 @@ CREATE TABLE produto_fornecedor (
 -- PROCEDURES
 -----------------------
 
-CREATE OR REPLACE PROCEDURE prc_registrar_fornecedor(
-	p_nome VARCHAR,
-	p_cnpj VARCHAR,
-	p_telefone VARCHAR,
-	p_email VARCHAR	
+-- CADASTRANDO PAGAMENTO
+CREATE OR REPLACE prc_registrar_pagamento (
+    p_forma_pagamento FORMA_PAGAMENTO,
+    p_juros NUMERIC(5,2),
+    p_impostos NUMERIC(5,2)
 )
 LANGUAGE plpgsql
+AS $$
+BEGIN 
+
+EXCEPTION
+
+END;
+$$;
+
+
+-- PAGAMENTO
+CREATE TABLE tb_pagamentos(
+    id SERIAL PRIMARY KEY,
+    forma_pagamento FORMA_PAGAMENTO NOT NULL,
+    juros NUMERIC(5,2),
+    impostos NUMERIC(5,2)
+);
+
+
+-- CADASTRANDO FORNECEDOR
+CREATE OR REPLACE PROCEDURE prc_registrar_fornecedor(
+	p_nome VARCHAR(20),
+	p_cnpj VARCHAR(150),
+	p_telefone VARCHAR(20),
+	p_email VARCHAR(100)	
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    INSERT INTO tb_fornecedores (nome, cnpj, telefone, email) 
+    VALUES (p_nome, p_cnpj, p_telefone, p_email);
+
+    RAISE NOTICE 'Fornecedor cadastrado com sucesso';
+    SELECT * FROM tb_fornecedores;
+
+EXCEPTION
+    WHEN others THEN 
+        RAISE NOTICE 'Erro ao cadastrar fornecedor: %', SQLERRM;
+
+END;
+$$;
+
+
+-- CADASTRANDO FUNCIONARIO
+CREATE OR REPLACE PROCEDURE sp_cadastrar_funcionario(
+	p_cpf CHAR(11),
+	p_nome VARCHAR(100),
+	p_salario NUMERIC(10,2),
+	p_telefone VARCHAR(20),
+	p_email VARCHAR(100),
+	p_data_nascimento DATE,
+	p_tipo_funcionario TIPO_FUNCIONARIO
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+
+	INSERT INTO tb_funcionarios (cpf, nome, salario, telefone, email, data_nascimento, tipo_funcionario)
+	VALUES (p_cpf, p_nome, p_salario, p_telefone, p_email, p_data_nascimento, p_tipo_funcionario);
+	RAISE NOTICE 'Funcionário cadastrado com sucesso';
+
+EXCEPTION
+	WHEN others THEN
+		RAISE EXCEPTION 'Erro ao cadastrar funcionário: %', SQLERRM;
+
+END;
+$$;
+
 
 ------------------
 -- TRIGGERS
