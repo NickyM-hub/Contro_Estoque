@@ -10,6 +10,7 @@ CREATE TYPE TIPO_FUNCIONARIO AS ENUM (
     'Financeiro'
 );
 
+
 CREATE TYPE FORMA_PAGAMENTO AS ENUM (
     'Débito',
     'Crédito',
@@ -41,8 +42,15 @@ CREATE TYPE STATUS_ALERTAS AS ENUM (
 CREATE TYPE STATUS_PRODUTO AS ENUM (
 	'Disponível', 
 	'Esgotado', 
-	'Indisponível'
+	'Estoque baixo'
 );
+-- Disponível: Quando existe a quantidade do produto no estoque para a venda;
+
+-- Estoque baixo: Quando não possui a quantidade disponível, mas há, ou ainda vai ter, 
+-- previsão de reabastecimento;
+
+-- Esgotado: Quando não possui a quantidade disponível e não a previsão de reabastecimento 
+-- (para produtos que não seram mais vendidos ou produzidos);
 
 
 CREATE TYPE UNI_MEDIDA AS ENUM (
@@ -119,7 +127,7 @@ CREATE TABLE tb_pagamentos(
 -- FORNECEDORES
 CREATE TABLE tb_fornecedores (
     cnpj VARCHAR(20) PRIMARY KEY,
-    nome VARCHAR(150) NOT NULL,
+    nome VARCHAR(150) NOT NULL,  -- CORRIGIDO: era VARCHAR(20), muito curto para um nome
     telefone VARCHAR(20) NOT NULL UNIQUE,
     email VARCHAR(100) NOT NULL UNIQUE
 );
@@ -129,9 +137,7 @@ CREATE TABLE tb_fornecedores (
 CREATE TABLE tb_funcionarios (
 	cpf CHAR(11) PRIMARY KEY,
 	nome VARCHAR(100) NOT NULL,
-	CHECK (idade >= 18),
-	salario NUMERIC(10, 2)
-    CHECK (salario > 0),
+	salario NUMERIC(10, 2) CHECK (salario > 0),
 	telefone VARCHAR(20) NOT NULL UNIQUE,
 	email VARCHAR(100) NOT NULL UNIQUE,
 	data_nascimento DATE NOT NULL,
@@ -201,7 +207,7 @@ CREATE TABLE tb_alertas (
     status STATUS_ALERTAS DEFAULT 'Pendente',
 	id_produto INTEGER NOT NULL,
 	
-	FOREIGN KEY (id_produto) REFERENCES tb_produtos(id)ON DELETE CASCADE
+	FOREIGN KEY (id_produto) REFERENCES tb_produtos(id) ON DELETE CASCADE
 );
 
 
@@ -274,7 +280,7 @@ CREATE TABLE tb_estoque (
     id SERIAL PRIMARY KEY,
     id_produto INTEGER NOT NULL UNIQUE,
     quantidade_produto INTEGER NOT NULL
-	CHECK (quantidade_produto > 0),
+	CHECK (quantidade_produto >= 0),
     unidade_medida UNI_MEDIDA,
     ultima_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	id_ultimo_pedido INTEGER,
@@ -375,23 +381,23 @@ BEGIN
 
 EXCEPTION
     WHEN others THEN 
-        RAISE NOTICE 'Erro ao regiastrar forma de pagamento: %', SQLERRM;
+        RAISE NOTICE 'Erro ao registrar forma de pagamento: %', SQLERRM;
 END;
 $$;
 
 
 -- CADASTRANDO FORNECEDOR
 CREATE OR REPLACE PROCEDURE prc_cadastar_fornecedor(
-	p_nome 		VARCHAR(20),
-	p_cnpj 		VARCHAR(150),
+	p_cnpj 		VARCHAR(20),
+	p_nome 		VARCHAR(150),
 	p_telefone 	VARCHAR(20),
 	p_email 	VARCHAR(100)	
 )
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    INSERT INTO tb_fornecedores (nome, cnpj, telefone, email) 
-    VALUES (p_nome, p_cnpj, p_telefone, p_email);
+    INSERT INTO tb_fornecedores (cnpj, nome, telefone, email) 
+    VALUES (p_cnpj, p_nome, p_telefone, p_email);
 
     RAISE NOTICE 'Fornecedor cadastrado com sucesso';
 
@@ -438,7 +444,6 @@ AS $$
 BEGIN
     INSERT INTO tb_categorias_produtos (nome_categoria)
     VALUES (p_nome_categoria);
-	
 END;
 $$;
 
@@ -478,7 +483,6 @@ AS $$
 BEGIN
     INSERT INTO tb_tamanho_produto (tamanho)
     VALUES (p_tamanho);
-
 END;
 $$;
 
@@ -529,7 +533,7 @@ BEGIN
         p_limite_min,
         p_ativo
     );
-		RAISE NOTICE 'Produto cadastrado com sucesso';
+	RAISE NOTICE 'Produto cadastrado com sucesso';
 
 EXCEPTION
 	WHEN others THEN
@@ -581,7 +585,7 @@ BEGIN
         p_id_pagamento,
         p_status
     );
-		RAISE NOTICE 'Pedido registrado com sucesso';
+	RAISE NOTICE 'Pedido registrado com sucesso';
 
 EXCEPTION
 	WHEN others THEN
@@ -600,18 +604,9 @@ CREATE OR REPLACE PROCEDURE prc_cadastrar_item_pedido(
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    INSERT INTO tb_itens_pedido (
-        quantidade,
-        preco_unitario,
-        id_pedido,
-        id_produto
-    )
-    VALUES (
-        p_quantidade,
-        p_preco_unitario,
-        p_id_pedido,
-        p_id_produto
-    );
+    INSERT INTO tb_itens_pedido (quantidade, preco_unitario, id_pedido)
+    VALUES (p_quantidade, p_preco_unitario, p_id_pedido, p_id_produto);
+END;
 $$;
 
 
@@ -626,7 +621,7 @@ AS $$
 BEGIN
     INSERT INTO tb_vendas (cpf_funcionario, valor_total, id_pagamento)
     VALUES (p_cpf_funcionario, p_valor_total, p_id_pagamento);
-		RAISE NOTICE 'Venda registrada com sucesso';
+	RAISE NOTICE 'Venda registrada com sucesso';
 
 EXCEPTION
 	WHEN others THEN
@@ -679,7 +674,7 @@ AS $$
 BEGIN
     INSERT INTO tb_estoque (id_produto, quantidade_produto, unidade_medida, id_ultimo_pedido)
     VALUES (p_id_produto, p_quantidade_produto, p_unidade_medida, p_id_ultimo_pedido);
-		RAISE NOTICE 'Produto adicionado ao Estoque';
+	RAISE NOTICE 'Produto adicionado ao Estoque';
 
 EXCEPTION
 	WHEN others THEN
@@ -725,17 +720,233 @@ BEGIN
 END;
 $$;
 
+
 ------------------
 -- TRIGGERS
 ------------------
+
+
+-- ATUALIZANDO ESTOQUE APÓS MOVIMENTAÇÃO
+CREATE OR REPLACE FUNCTION fnc_atualizar_estoque_movimentacao()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.tipo = 'Entrada' THEN
+        UPDATE tb_estoque
+        SET quantidade_produto = quantidade_produto + NEW.quantidade,
+            ultima_atualizacao = CURRENT_TIMESTAMP
+        WHERE id_produto = NEW.id_produto;
+
+    ELSIF NEW.tipo = 'Saída' THEN
+        UPDATE tb_estoque
+        SET quantidade_produto = quantidade_produto - NEW.quantidade,
+            ultima_atualizacao = CURRENT_TIMESTAMP
+        WHERE id_produto = NEW.id_produto;
+
+    ELSIF NEW.tipo = 'Ajuste de Inventário' THEN
+        UPDATE tb_estoque
+        SET quantidade_produto = NEW.quantidade,
+            ultima_atualizacao = CURRENT_TIMESTAMP
+        WHERE id_produto = NEW.id_produto;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_atualizar_estoque_movimentacao
+AFTER INSERT ON tb_movimentacao_estoque
+FOR EACH ROW
+EXECUTE FUNCTION fnc_atualizar_estoque_movimentacao();
+
+
+-- ATUALIZANDO STATUS DO PRODUTO
+CREATE OR REPLACE FUNCTION fnc_atualizar_status_produto()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.quantidade_produto <= 0 THEN
+        UPDATE tb_produtos
+        SET status = 'Esgotado'
+        WHERE id = NEW.id_produto;
+    ELSE
+        UPDATE tb_produtos
+        SET status = 'Disponível'
+        WHERE id = NEW.id_produto AND status = 'Esgotado';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_atualizar_status_produto
+AFTER UPDATE ON tb_estoque
+FOR EACH ROW
+EXECUTE FUNCTION fnc_atualizar_status_produto();
+
+
+-- ATUALIZANDO ÚLTIMO PEDIDO NO ESTOQUE QUANDO PEDIDO FOR CONFIRMADO
+CREATE OR REPLACE FUNCTION fnc_atualizar_pedido_estoque()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.status = 'Confirmado' AND OLD.status <> 'Confirmado' THEN
+        UPDATE tb_estoque e
+        SET id_ultimo_pedido = NEW.id,
+            ultima_atualizacao = CURRENT_TIMESTAMP
+        FROM tb_itens_pedido ip
+        WHERE ip.id_pedido = NEW.id
+          AND e.id_produto = ip.id_produto;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_atualizar_pedido_estoque
+AFTER UPDATE ON tb_pedidos
+FOR EACH ROW
+EXECUTE FUNCTION fnc_atualizar_pedido_estoque();
+
+
+-- ATUALIZAÇÕES DE FUNCIONÁRIO
+CREATE OR REPLACE FUNCTION fnc_auditoria_funcionario()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE NOTICE 'Funcionário % atualizado em %', OLD.cpf, CURRENT_TIMESTAMP;
+    RAISE NOTICE '  Nome: % → %',    OLD.nome,             NEW.nome;
+    RAISE NOTICE '  Email: % → %',   OLD.email,            NEW.email;
+    RAISE NOTICE '  Tipo: % → %',    OLD.tipo_funcionario, NEW.tipo_funcionario;
+    RAISE NOTICE '  Salário: % → %', OLD.salario,          NEW.salario;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_auditoria_funcionario
+AFTER UPDATE ON tb_funcionarios
+FOR EACH ROW
+EXECUTE FUNCTION fnc_auditoria_funcionario();
+
+
+-- ATUALIZAÇÕES DE FORNECEDOR
+CREATE OR REPLACE FUNCTION fnc_auditoria_fornecedor()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE NOTICE 'Fornecedor % atualizado em %', OLD.cnpj, CURRENT_TIMESTAMP;
+    RAISE NOTICE '  Nome: % → %',     OLD.nome,      NEW.nome;
+    RAISE NOTICE '  Email: % → %',    OLD.email,     NEW.email;
+    RAISE NOTICE '  Telefone: % → %', OLD.telefone,  NEW.telefone;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_auditoria_fornecedor
+AFTER UPDATE ON tb_fornecedores
+FOR EACH ROW
+EXECUTE FUNCTION fnc_auditoria_fornecedor();
+
+-- PRINCIPAL!!!!!!!!!!!!!!!!!!!!!!!1
+-- ALERTAR QUANDO PRODUTO ESTIVER ABAIXO DO LIMITE MÍNIMO
+CREATE OR REPLACE FUNCTION fnc_alerta_estoque_baixo()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_limite_min   INTEGER;
+    v_nome_produto VARCHAR(100);
+BEGIN
+    SELECT p.limite_min, p.nome_produto INTO v_limite_min, v_nome_produto
+    FROM tb_produtos p WHERE p.id = NEW.id_produto;
+
+    IF NEW.quantidade_produto <= v_limite_min THEN
+        INSERT INTO tb_alertas (mensagem, id_produto)
+        VALUES (
+            'ALERTA: Produto "' || v_nome_produto || '" está abaixo do limite mínimo. ' ||
+            'Quantidade atual: ' || NEW.quantidade_produto || ' | Limite mínimo: ' || v_limite_min,
+            NEW.id_produto
+        );
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_alerta_estoque_baixo
+AFTER UPDATE ON tb_estoque
+FOR EACH ROW
+EXECUTE FUNCTION fnc_alerta_estoque_baixo();
+
+
+-- VERIFICAR PRAZO MÍNIMO DE 4 DIAS NA PREVISÃO DE ENTREGA DO PEDIDO
+CREATE OR REPLACE FUNCTION fnc_validar_previsao_entrega()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.previsao_entrega < CURRENT_DATE + INTERVAL '4 days' THEN
+        RAISE EXCEPTION 'A previsão de entrega deve ter no mínimo 4 dias.'
+		RAISE EXCEPTION 'Data mínima permitida: %',
+            (CURRENT_DATE + INTERVAL '4 days')::DATE;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_validar_previsao_entrega
+BEFORE INSERT OR UPDATE ON tb_pedidos
+FOR EACH ROW
+EXECUTE FUNCTION fnc_validar_previsao_entrega();
+
+
+-- IMPEDIR VENDA SE QUANTIDADE EM ESTOQUE FOR INSUFICIENTE
+CREATE OR REPLACE FUNCTION fnc_validar_estoque_venda()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_quantidade_estoque INTEGER;
+    v_nome_produto       VARCHAR(100);
+BEGIN
+    SELECT e.quantidade_produto, p.nome_produto
+    INTO v_quantidade_estoque, v_nome_produto
+    FROM tb_estoque e
+    JOIN tb_produtos p ON p.id = e.id_produto
+    WHERE e.id_produto = NEW.id_produto;
+
+    IF v_quantidade_estoque IS NULL THEN
+        RAISE EXCEPTION 'Produto (id: %) não encontrado no estoque.', NEW.id_produto;
+    END IF;
+
+    IF NEW.quantidade > v_quantidade_estoque THEN
+        RAISE EXCEPTION 'Estoque insuficiente para o produto "%". Disponível: % | Solicitado: %',
+            v_nome_produto, v_quantidade_estoque, NEW.quantidade;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_validar_estoque_venda
+BEFORE INSERT ON tb_itens_venda
+FOR EACH ROW
+EXECUTE FUNCTION fnc_validar_estoque_venda();
 
 
 ----------------
 -- VIEWS
 ----------------
 
-
-------------------------
--- ARRUMANDO ERROS
-------------------------
-
+-- PRODUTOS ABAIXO DO LIMITE MÍNIMO
+CREATE OR REPLACE VIEW vw_produtos_abaixo_limite AS
+SELECT
+    p.id                    AS id_produto,
+    p.sku,
+    p.nome_produto,
+    m.nome_marca            AS marca,
+    c.nome_cor              AS cor,
+    t.tamanho,
+    p.status,
+    p.limite_min            AS limite_minimo,
+    e.quantidade_produto    AS quantidade_atual,
+    (p.limite_min - e.quantidade_produto) AS diferenca,
+    e.ultima_atualizacao
+FROM tb_produtos p
+JOIN tb_estoque e         ON e.id_produto    = p.id
+JOIN tb_marca_produto m   ON m.id            = p.id_marca
+JOIN tb_cor_produto c     ON c.id            = p.id_cor
+JOIN tb_tamanho_produto t ON t.id            = p.id_tamanho
+WHERE e.quantidade_produto <= p.limite_min
+  AND p.ativo = TRUE
+ORDER BY diferenca DESC;
