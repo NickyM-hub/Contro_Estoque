@@ -42,15 +42,21 @@ CREATE TYPE STATUS_ALERTAS AS ENUM (
 CREATE TYPE STATUS_PRODUTO AS ENUM (
 	'Disponível', 
 	'Esgotado', 
-	'Estoque baixo'
+	'Estoque baixo',
+	'Inexistente',
+	'Indísponível'
 );
 -- Disponível: Quando existe a quantidade do produto no estoque para a venda;
+
+-- Indisponivel: quantidade insulficiente para a venda
 
 -- Estoque baixo: Quando não possui a quantidade disponível, mas há, ou ainda vai ter, 
 -- previsão de reabastecimento;
 
 -- Esgotado: Quando não possui a quantidade disponível e não a previsão de reabastecimento 
 -- (para produtos que não seram mais vendidos ou produzidos);
+
+-- Inexistente: produto não encontrado no banco
 
 
 CREATE TYPE UNI_MEDIDA AS ENUM (
@@ -759,18 +765,45 @@ FOR EACH ROW
 EXECUTE FUNCTION fnc_atualizar_estoque_movimentacao();
 
 
--- ATUALIZANDO STATUS DO PRODUTO
+-- ATUALIZANDO STATUS DO PEDIDO
 CREATE OR REPLACE FUNCTION fnc_atualizar_status_produto()
 RETURNS TRIGGER AS $$
+DECLARE
+    v_limite_min       INTEGER;
+    v_ativo            BOOLEAN;
+    v_tem_pedido_ativo BOOLEAN;
 BEGIN
-    IF NEW.quantidade_produto <= 0 THEN
-        UPDATE tb_produtos
-        SET status = 'Esgotado'
-        WHERE id = NEW.id_produto;
+    SELECT p.limite_min, p.ativo
+    INTO v_limite_min, v_ativo
+    FROM tb_produtos p
+    WHERE p.id = NEW.id_produto;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Produto (id: %) não encontrado no banco.', NEW.id_produto;
+    END IF;
+
+    SELECT EXISTS (
+        SELECT 1 FROM tb_pedidos p
+        JOIN tb_itens_pedido ip ON ip.id_pedido = p.id
+        WHERE ip.id_produto = NEW.id_produto 
+		AND p.status NOT IN ('Entregue')
+    ) INTO v_tem_pedido_ativo;
+
+    IF NOT v_ativo AND NEW.quantidade_produto = 0 AND NOT v_tem_pedido_ativo THEN
+        UPDATE tb_produtos SET status = 'Esgotado'       
+		WHERE id = NEW.id_produto;
+
+    ELSIF NEW.quantidade_produto = 0 AND v_tem_pedido_ativo THEN
+        UPDATE tb_produtos SET status = 'Indisponível'   
+		WHERE id = NEW.id_produto;
+
+    ELSIF NEW.quantidade_produto < v_limite_min THEN
+        UPDATE tb_produtos SET status = 'Estoque Baixo'  
+		WHERE id = NEW.id_produto;
+
     ELSE
-        UPDATE tb_produtos
-        SET status = 'Disponível'
-        WHERE id = NEW.id_produto AND status = 'Esgotado';
+        UPDATE tb_produtos SET status = 'Disponível'     
+		WHERE id = NEW.id_produto;
     END IF;
 
     RETURN NEW;
