@@ -2,8 +2,10 @@
 anotações.txt
 
 # ignorando arquivos .idea
-.idea/
-target/classes
+target/classes/.idea
+target/classes/.idea/libraries
 
-meuprojeto.iml
-
+# ignorando arquivos .xml e .iml
+target/classes/.idea/*.xml
+target/classes/.idea/*.iml
+*.iml
