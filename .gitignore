@@ -1,0 +1,9 @@
+# escondendo anotações
+anotações.txt
+
+# ignorando arquivos .idea
+.idea/
+target/classes
+
+meuprojeto.iml
+
