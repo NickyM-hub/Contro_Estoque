@@ -1,6 +1,9 @@
 # escondendo anotações
 anotações.txt
 
+target/
+
+
 # ignorando arquivos .idea
 target/classes/.idea
 target/classes/.idea/libraries
