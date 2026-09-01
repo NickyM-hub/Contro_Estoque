@@ -8,4 +8,8 @@ target/classes/.idea/libraries
 # ignorando arquivos .xml e .iml
 target/classes/.idea/*.xml
 target/classes/.idea/*.iml
+
 *.iml
+.idea/
+
+
