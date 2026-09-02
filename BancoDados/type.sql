@@ -76,3 +76,4 @@ CREATE TYPE MOVIMENTACAO_ESTOQUE AS ENUM (
     'Saída',
     'Ajuste de Inventário'
 );
+
